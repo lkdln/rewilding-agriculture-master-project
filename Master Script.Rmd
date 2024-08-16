@@ -1,0 +1,662 @@
+---
+title: "Master R markdown"
+output: html_document
+date: "2024-06-26"
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Load Library
+
+```{r, echo=FALSE}
+library(tidyverse)
+library(readr)
+library(Hmisc)
+library(cowplot)
+library(gridExtra)
+library(sf)
+library(revgeo)
+library(tidygeocoder)
+library(knitr)
+library(kableExtra)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+library(htmltools) 
+library(shiny)
+library(gt)
+library(webshot)
+library(rnaturalearth)
+library(rnaturalearthdata)
+
+```
+
+# 1. Rewilding Projects Gradient
+
+The dataframe was created from information gathered on Rewild Britain
+and individual rewilding websites.
+
+```{r, echo=FALSE}
+
+rw_df <- read_csv("rw_uk_data.csv")
+
+```
+
+```{r}
+# Load Natural Earth data for the UK
+uk <- ne_countries(scale = "medium", returnclass = "sf") %>%
+  dplyr::filter(admin == "United Kingdom")
+
+# Check the first few rows of your dataset to ensure it is loaded correctly
+# Replace with your actual dataset loading method if needed
+# rw_df <- read.csv("path/to/your/data.csv")
+head(rw_df)
+
+# Convert your dataset to an sf object
+rw_sf <- st_as_sf(rw_df, coords = c("Long", "Lat"), crs = 4326)
+
+# Plot the map
+ggplot(data = uk) +
+  geom_sf() +
+  geom_sf(data = rw_sf, aes(size = Size_ha, color = Size_ha), alpha = 0.6) +
+  geom_text(data = rw_df, aes(x = Long, y = Lat, label = Site_Name), hjust = 0.5, vjust = -0.5) +
+  scale_size_continuous(name = "Size (ha)", range = c(3, 10)) +  # Ensure the size legend has the correct name
+  scale_color_continuous(name = "Size (ha)") +  # Ensure the color legend has the correct name
+  guides(
+    size = guide_legend(title = "Size (ha)"),
+    color = guide_legend(title = "Size (ha)")
+  ) +
+  labs(title = "Map of the UK rewilding projects with agricultural activities",
+       x = "Longitude", y = "Latitude") +
+  theme_minimal() +
+  theme(legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8),
+        legend.position = "right")
+```
+
+## Score the projects
+
+```{r}
+# the final score is given based on the agriculture practices scoring matrix and the "score criteria" columns on the rewilding dataset. 
+# 
+rw_df <- rw_df %>%
+mutate(final_score = case_when(
+Site_Name == "Wild Packington" ~ 2,
+Site_Name == "Wicken Fen" ~ 2,
+Site_Name == "Highlands Rewilding - Beldorney" ~ 2,
+Site_Name == "Wild Ennerdale" ~ 3,
+Site_Name == "Sunart Fields" ~ 3,
+Site_Name == "Mapperton Estate" ~ 4,
+Site_Name == "Wilder Doddington" ~ 6,
+Site_Name == "Westacre" ~ 6,
+Site_Name == "Wild Ken Hill" ~ 7,
+Site_Name == "Knepp Castle Estate" ~ 7,
+Site_Name == "Geltsdale Farm" ~ 9,
+Site_Name == "Sheepdrove Organic Farm" ~ 9,
+Site_Name == "Wild Haweswater" ~ 9
+))
+
+# the score are categorised in three cluster, ie. a biodiversity gradients from Low to High
+rw_df <- rw_df %>%
+mutate(category = case_when(
+final_score <= 4 ~ "Low",
+final_score <= 7 ~ "Medium",
+final_score <= 9 ~ "High"
+))
+
+```
+
+## Place the projects on a biodiversity gradients
+
+```{r}
+
+# Create the shaded areas data frame
+shade_data <- data.frame(
+  xmin = c(0, 4, 7),
+  xmax = c(4, 7, Inf),
+  ymin = -Inf,
+  ymax = Inf,
+  fill = factor(c("Low", "Medium", "High"), levels = c("Low", "Medium", "High"))
+)
+
+# plot to have the rewilding projects with the shaded areas on it
+plot <- ggplot(rw_df, aes(x = final_score, y = Site_Name)) +
+  geom_rect(data = shade_data, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = fill), alpha = 0.3, inherit.aes = FALSE) +
+  geom_point(size = 4) +
+  scale_x_continuous(limits = c(0, 10), breaks = 0:10) +
+  scale_fill_manual(values = c("Low" = "lightgoldenrod2", "Medium" = "lightblue", "High" = "lightgreen"),
+                    name = "Rewilding projects cluster : ") +
+  theme_minimal() +
+  labs(title = "Rewilding Sites Final Scores",
+       x = "Final Score",
+       y = "Site Name") +
+  theme(axis.text.y = element_text(size = 16),
+        axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        plot.title = element_text(size = 20, face = "bold", hjust = 0), # Align title to the right
+        plot.title.position = "plot",
+        legend.position = c(1, 1),     # Move legend to the top-right corner
+        legend.justification = c(1, 1), # Align legend to the top-right corner
+        legend.background = element_rect(fill = "white", color = "black"),
+        legend.box = "vertical",          # Align legends vertically
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.key.width = unit(1, "cm"), # Adjust the width of the legend keys
+        legend.key.height = unit(1, "cm")) # Adjust the height of the legend keys
+
+# Display the plot
+ggsave("rewilding_sites_final_scores.jpeg", plot = plot, width = 15, height = 10)  # Adjusted width for more space
+
+
+```
+
+------------------------------------------------------------------------
+
+# 2. Statistical Analysis
+
+Data from the biodiversity data meta-analysis (Moffett, Gayford,
+Woodward, and Pearse, 2023).
+
+```{r, echo=FALSE, results'hide'}
+data <- read_csv("BEF_DATA_COMBINED.csv", 
+                 col_types = cols(Biodiversity_value_x = col_number(), 
+                                  Biodiversiy_value_SD = col_number(), 
+                                  Ecosystem_function_value_y = col_number()))
+```
+
+## Prepare data
+
+Clean the data (remove duplicate and unnecessary columns), reduce data
+to the ecosystem functions linked to agriculture.
+
+```{r, echo=FALSE}
+# Identify and remove duplicate rows based on all columns except the first three
+data <- data %>% select(-c(...1, ...2, ...3)) %>% distinct()
+
+# Prep data for focus on agriculture
+data <- data %>% select(-c(Initials, Date_data_entered, label, Table_or_figure_number, Data_capture_method)) %>% 
+  filter(Biome_general == 'terrestrial' & Manipulation == 'none') %>% 
+  select(-c(Biome_general, Manipulation))
+```
+
+Select ecosystem functions linked to agriculture
+
+```{r}
+agri_ecosystem_function <- c("Biomass_turnover_rate",  "Evapotranspiration", "Food_and_feed", "Terrestrial_NPP", "Regulation_of_climate", "Energy", "Supporting_identities", "Regulation_of_hazards_and_extreme_events",  "Regulation_of_detrimental_organisms_and_biological_processes", "Formation_protection_and_decontamination_of_soils_and_sediments", "Learning_and_inspiration", "Maintenance_of_options", "Terrestrial_C_sequestration", "Pollination_and_dispersal_of_seeds_and_other_propagules" )
+
+# Filter data by ecosystem function metric
+agridata <- data %>% filter(Ecosystem_function_metric %in% agri_ecosystem_function)
+
+# Separate data by biodiversity metric
+richness <- agridata %>% filter(Biodiversity_metric == "Species_diversity_or_richness")
+evenness <- agridata %>% filter(Biodiversity_metric == "Evenness")
+```
+
+Define function to remove outliers. Scale the biodiversity and EF value
+(as different units extracted from the different studies included in the
+dataset). Lastly, filter the data to remove null/NA value, and the
+outliers for both biodiversity and EF value.
+
+```{r}
+remove_outliers <- function(df, column) {
+  Q1 <- quantile(df[[column]], 0.25, na.rm = TRUE)
+  Q3 <- quantile(df[[column]], 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  df %>% filter(df[[column]] >= (Q1 - 1.5 * IQR) & df[[column]] <= (Q3 + 1.5 * IQR))
+}
+
+# add standardisation of the biodiversity metric and ecosystem function
+richness$Ecosystem_function_value_y_std <- scale(richness$Ecosystem_function_value_y)
+richness$Biodiversity_value_x_std <- scale(richness$Biodiversity_value_x)
+
+evenness$Ecosystem_function_value_y_std <- scale(evenness$Ecosystem_function_value_y)
+evenness$Biodiversity_value_x_std <- scale(evenness$Biodiversity_value_x)
+
+
+# remove outliers and null / NA results
+filtered_richness <- richness %>% 
+  filter(!is.na(Biodiversity_value_x_std) &
+         !is.nan(Biodiversity_value_x_std) &
+         !is.infinite(Biodiversity_value_x_std) &
+         Biodiversity_value_x_std > 0) %>%
+   filter(!is.na(Ecosystem_function_value_y_std) &
+         !is.nan(Ecosystem_function_value_y_std) &
+         !is.infinite(Ecosystem_function_value_y_std) &
+         Ecosystem_function_value_y_std > 0)
+  
+filtered_richness <- remove_outliers(filtered_richness, "Biodiversity_value_x_std")
+filtered_richness <- remove_outliers(filtered_richness, "Ecosystem_function_value_y_std")
+
+filtered_evenness <- evenness %>% 
+  filter(!is.na(Biodiversity_value_x_std) &
+         !is.nan(Biodiversity_value_x_std) &
+         !is.infinite(Biodiversity_value_x_std) &
+         Biodiversity_value_x_std > 0) %>%
+   filter(!is.na(Ecosystem_function_value_y_std) &
+         !is.nan(Ecosystem_function_value_y_std) &
+         !is.infinite(Ecosystem_function_value_y_std) &
+         Ecosystem_function_value_y_std > 0)
+  
+filtered_evenness <- remove_outliers(filtered_evenness, "Biodiversity_value_x_std") 
+filtered_evenness <- remove_outliers(filtered_evenness, "Ecosystem_function_value_y_std")
+```
+
+Check the number of observations per EF / biodiversity pairs
+
+```{r}
+count_per_efm <- filtered_richness %>%
+  group_by(Ecosystem_function_metric) %>%
+  summarise(count = n())
+count_per_efm_ev <- filtered_evenness %>%
+  group_by(Ecosystem_function_metric) %>%
+  summarise(count = n())
+print(count_per_efm)
+print(count_per_efm_ev)
+```
+
+```{r}
+# remove any combination under 15 count of observations 
+filtered_richness <- filtered_richness %>%
+  filter(Ecosystem_function_metric %in% count_per_efm$Ecosystem_function_metric[count_per_efm$count >= 10])
+filtered_evenness <- filtered_evenness %>%
+  filter(Ecosystem_function_metric %in% count_per_efm_ev$Ecosystem_function_metric[count_per_efm_ev$count >= 10])
+
+```
+
+```{r}
+evenef <- unique(filtered_evenness$Ecosystem_function_metric)
+richef <- unique(filtered_richness$Ecosystem_function_metric)
+
+check_assumption <- function(data, metric) {
+  df <- data %>% filter(Ecosystem_function_metric == metric)
+  x <- df$Biodiversity_value_x_std
+  y <- df$Ecosystem_function_value_y_std
+  dat <- data.frame(x, y)
+  dat$x <- dat$x + 0.0000001
+
+  model <- lm(y ~ x, data = dat)
+
+  # QQ plot function
+  qq_plot <- ggplot(model, aes(sample = .stdresid)) +
+      stat_qq() +
+      stat_qq_line(color = "red") +
+      labs(title = paste(metric, " - ", deparse(substitute(model)))) +
+      theme_minimal()
+  
+  filename <- paste0(metric, "_all_models_qq_plots.jpeg")
+  jpeg(filename, width = 1200, height = 1200)
+  print(qq_plot)
+  dev.off()
+}
+
+# check qq assumptiosn for richness and evenness 
+for (metric in richef) {
+  check_assumption(filtered_richness, metric)
+}
+
+for (metric in evenef) {
+  check_assumption(filtered_evenness, metric)
+}
+
+```
+
+## Define function to calculate and compare AIC values
+
+```{r}
+# function to calculate AIC per model (each transformation is reviewed)
+
+AIC_Summary <- function(data, title_prefix) {
+  metrics <- unique(data$Ecosystem_function_metric) 
+  
+  summary_results <- data.frame(
+    Ecosystem_Function = character(),
+    AIC_Log = numeric(),
+    AIC_Quad = numeric(),
+    AIC_Norm = numeric(),
+    stringsAsFactors = FALSE)
+  
+  for (metric in metrics) {
+    df <- data %>% filter(Ecosystem_function_metric == metric) #unique df for each EF
+    x <- df$Biodiversity_value_x_std
+    y <- df$Ecosystem_function_value_y_std
+    dat <- data.frame(x, y)
+    dat$x <- dat$x + 0.0000001
+    
+    # model transformation to compare AIC from
+    model_log <- lm(y ~ log(x), data = dat)
+    model_quad <- lm(y ~ x + I(x^2), data = dat)
+    model_norm <- lm(y ~ x, data = dat)
+    
+    AIC_log <- AIC(model_log)
+    AIC_quad <- AIC(model_quad)
+    AIC_norm <- AIC(model_norm)
+    
+    summary_results <- rbind(summary_results, data.frame(
+      Ecosystem_Function = metric,
+      AIC_Log = AIC_log,
+      AIC_Quad = AIC_quad,
+      AIC_Norm = AIC_norm))
+  }
+  
+  summary_results$AIC_Log <- as.integer(summary_results$AIC_Log)
+  summary_results$AIC_Quad <- as.integer(summary_results$AIC_Quad)
+  summary_results$AIC_Norm <- as.integer(summary_results$AIC_Norm)
+  
+  # table for the annexes to show the AIC result
+  summary_results <- summary_results %>%
+    mutate(
+      AIC_Log_Highlight = ifelse(AIC_Log < AIC_Quad & AIC_Log < AIC_Norm, cell_spec(AIC_Log, "html", color = "cornflowerblue"), as.character(AIC_Log)),
+      AIC_Quad_Highlight = ifelse(AIC_Quad < AIC_Log & AIC_Quad < AIC_Norm, cell_spec(AIC_Quad, "html", color = "cornflowerblue"), as.character(AIC_Quad)),
+      AIC_Norm_Highlight = ifelse(AIC_Norm < AIC_Log & AIC_Norm < AIC_Quad, cell_spec(AIC_Norm, "html", color = "cornflowerblue"), as.character(AIC_Norm))
+    )
+  
+  title <- paste(title_prefix, "Summary of AIC values for each ecosystem function")
+  
+  # formatting for the table
+  summary_table <- summary_results %>%
+    select(Ecosystem_Function, AIC_Log_Highlight, AIC_Quad_Highlight, AIC_Norm_Highlight) %>%
+    kbl(escape = FALSE, col.names = c("Ecosystem Function", "AIC (Log)", "AIC (Quad)", "AIC (Norm)")) %>%
+    add_header_above(c(" ", title, " ", " ")) %>%
+    kable_styling("striped", full_width = F)
+  
+  print(summary_table)
+  return(summary_results)
+}
+```
+
+Calculate AIC summaries for richness and evenness
+
+```{r}
+richness_AIC <- AIC_Summary(filtered_richness, "Richness")
+evenness_AIC <- AIC_Summary(filtered_evenness, "Evenness")
+evenef <- unique(filtered_evenness$Ecosystem_function_metric)
+richef <- unique(filtered_richness$Ecosystem_function_metric)
+
+```
+
+
+## Define function to create statistical model and plot
+
+```{r}
+create_stat <- function(data, ef, summary_results, metric) {
+  df <- data %>% filter(Ecosystem_function_metric == ef)
+  x <- df$Biodiversity_value_x_std
+  y <- df$Ecosystem_function_value_y_std
+  dat <- data.frame(x, y)
+  dat$x <- dat$x + 0.0000001
+  x_axis <- unique(df$Biodiversity_metric)
+  y_axis <- unique(df$Ecosystem_function_metric)
+  y_unit <- "Z-score" 
+  EF_cat <- unique(df$Ecosystem_function_metric)
+  
+  # Calculate AIC values for different models
+  AIC_log <- AIC(lm(y ~ log(x), data = dat))
+  AIC_quad <- AIC(lm(y ~ x + I(x^2), data = dat))
+  AIC_norm <- AIC(lm(y ~ x, data = dat))
+
+  # create empty model and formula to run the comparison
+  model <- NULL
+  model_formula <- NULL
+
+  # review if AIC values exist for the current EF in summary_results
+  if (any(is.na(summary_results$AIC_Log[summary_results$Ecosystem_Function == ef])) ||
+      any(is.na(summary_results$AIC_Quad[summary_results$Ecosystem_Function == ef])) ||
+      any(is.na(summary_results$AIC_Norm[summary_results$Ecosystem_Function == ef]))) {
+    stop("Missing AIC values for the EF")
+  }
+
+  # find the model with the lowest AIC to be selected for analysis
+  if (summary_results$AIC_Log[summary_results$Ecosystem_Function == ef] < 
+      summary_results$AIC_Quad[summary_results$Ecosystem_Function == ef] &&
+      summary_results$AIC_Log[summary_results$Ecosystem_Function == ef] < 
+      summary_results$AIC_Norm[summary_results$Ecosystem_Function == ef]) {
+    model <- lm(y ~ log(x), data = dat)
+    model_formula <- y ~ log(x)
+  } else if (summary_results$AIC_Quad[summary_results$Ecosystem_Function == ef] < 
+             summary_results$AIC_Norm[summary_results$Ecosystem_Function == ef]) {
+    model <- lm(y ~ x + I(x^2), data = dat)
+    model_formula <- y ~ x + I(x^2)
+  } else {
+    model <- lm(y ~ x, data = dat)
+    model_formula <- y ~ x
+  }
+
+  # calculate quantile values for x (used for cluster of rewilding projects)
+  x_quantiles <- quantile(x, probs = c(0.33, 0.66))
+  x_0_33 <- x_quantiles[1]
+  x_33_66 <- x_quantiles[2]
+
+  vline_data <- data.frame(x = c(x_0_33, x_33_66), 
+                           quantile = factor(c("0.33 Quantile", "0.66 Quantile")))
+  
+  # generate model summary table
+  model_summary <- tab_model(model, dv.labels = as.character(model_formula),
+                             show.se = TRUE, show.icc = FALSE, show.ngroups = FALSE, show.re.var = TRUE,
+                             wrap.labels = 35)
+  
+  # final plot with cluster lines and results
+  plot <- ggplot(dat, aes(x = x, y = y)) +
+    geom_point(size = 2, alpha = 0.5, colour = "#355C7D") +  
+    stat_smooth(method = "lm", formula = model_formula, size = 1, colour = "black") +
+    geom_vline(data = vline_data, aes(xintercept = x, linetype = quantile, color = quantile), size = 1) +
+    scale_linetype_manual(values = c("0.33 Quantile" = "dashed", "0.66 Quantile" = "dashed")) +
+    scale_color_manual(values = c("0.33 Quantile" = "orange", "0.66 Quantile" = "lightgreen")) +
+    labs(x = x_axis, y = paste(ifelse(nchar(y_axis) > 20, paste0(substr(y_axis, 1, 20), "..."), y_axis), "(", y_unit, ")", sep = "")) +
+    theme_classic(base_size = 10) +
+    ggtitle(paste(EF_cat, "against", ifelse(metric == "Species_diversity_or_richness", "Species Richness", "Evenness"))) +
+    theme(legend.position = "none")
+  
+  # results table
+  model_title <- paste("Model Summary for", EF_cat, "and", metric)
+  model_summary_html <- paste0("<h4>", model_title, "</h4>", model_summary$knitr)
+  
+  return(list(plot = plot, model_summary = model_summary_html))
+}
+
+# merge the legends in 1 
+create_legend_plot <- function() {
+  dummy_data <- data.frame(x = c(1, 2), y = c(1, 2))
+  vline_data <- data.frame(x = c(1, 2),
+                           quantile = factor(c("0.33 Quantile", "0.66 Quantile")))
+  
+  legend_plot <- ggplot(dummy_data, aes(x = x, y = y)) +
+    geom_vline(data = vline_data, aes(xintercept = x, linetype = quantile, color = quantile), size = 1) +
+    scale_linetype_manual(values = c("0.33 Quantile" = "dashed", "0.66 Quantile" = "dashed")) +
+    scale_color_manual(values = c("0.33 Quantile" = "orange", "0.66 Quantile" = "lightgreen")) +
+    theme_void() +
+    theme(legend.title = element_blank())
+  
+  legend <- cowplot::get_legend(legend_plot)
+  return(legend)
+}
+```
+
+## Summary Tables and Plots
+
+### For Evenness
+
+Plots and table to review the evenness models results 
+```{r}
+plots_evenness <- list()
+model_summaries_evenness <- list()
+
+for (ef in evenef) {
+  result <- create_stat(filtered_evenness, ef, evenness_AIC, "Evenness")
+  plots_evenness[[ef]] <- result$plot
+  model_summaries_evenness[[ef]] <- result$model_summary
+}
+
+do.call(grid.arrange, c(plots_evenness, ncol = 2))
+combined_model_summaries_evenness <- do.call(tagList, lapply(model_summaries_evenness, HTML))
+browsable(combined_model_summaries_evenness)
+```
+
+### For Richness
+
+Plots and table to review the richness models results 
+```{r}
+plots_richness <- list()
+model_summaries_richness <- list()
+
+for (ef in richef) {
+  result <- create_stat(filtered_richness, ef, richness_AIC, "Species_diversity_or_richness")
+  plots_richness[[ef]] <- result$plot
+  model_summaries_richness[[ef]] <- result$model_summary
+}
+
+do.call(grid.arrange, c(plots_richness, ncol = 2))
+combined_model_summaries_richness <- do.call(tagList, lapply(model_summaries_richness, HTML))
+browsable(combined_model_summaries_richness)
+
+```
+
+------------------------------------------------------------------------
+
+# 3. Final plots merging rewilding gradients (1) and statistical results (2)
+
+```{r}
+### we reuse the previous functions for create stat but this time only looking at the significant model to produce the graph 
+
+# run model and check their AIC 
+create_stat_model <- function(data, ef, summary_results, metric) {
+  df <- data %>% filter(Ecosystem_function_metric == ef)
+  x <- df$Biodiversity_value_x_std
+  y <- df$Ecosystem_function_value_y_std
+  dat <- data.frame(x, y)
+  dat$x <- dat$x + 0.0000001
+  x_axis <- unique(df$Biodiversity_metric)
+  y_axis <- unique(df$Ecosystem_function_metric)
+  y_unit <- "Z-score"
+  EF_cat <- unique(df$Ecosystem_function_metric)
+  
+  AIC_log <- AIC(lm(y ~ log(x), data = dat))
+  AIC_quad <- AIC(lm(y ~ x + I(x^2), data = dat))
+  AIC_norm <- AIC(lm(y ~ x, data = dat))
+  
+  # find lowest AIC 
+  if (summary_results$AIC_Log[summary_results$Ecosystem_Function == ef] < 
+      summary_results$AIC_Quad[summary_results$Ecosystem_Function == ef] &&
+      summary_results$AIC_Log[summary_results$Ecosystem_Function == ef] < 
+      summary_results$AIC_Norm[summary_results$Ecosystem_Function == ef]) {
+    model <- lm(y ~ log(x), data = dat)
+    model_formula <- y ~ log(x)
+  } else if (summary_results$AIC_Quad[summary_results$Ecosystem_Function == ef] < 
+             summary_results$AIC_Norm[summary_results$Ecosystem_Function == ef]) {
+    model <- lm(y ~ x + I(x^2), data = dat)
+    model_formula <- y ~ x + I(x^2)
+  } else {
+    model <- lm(y ~ x, data = dat)
+    model_formula <- y ~ x
+  }
+  
+  return(list(
+    model = model,
+    model_formula = model_formula,
+    dat = dat,
+    x_axis = x_axis,
+    y_axis = y_axis,
+    y_unit = y_unit,
+    EF_cat = EF_cat
+  ))
+}
+
+
+# function to create the summary plots which shows the biodiversity cluster on the models results (only significant ones)
+create_stat_plot <- function(model_data, metric, show_legend = FALSE) {
+  model <- model_data$model
+  model_formula <- model_data$model_formula
+  dat <- model_data$dat
+  x <- dat$x
+  x_axis <- model_data$x_axis
+  y_axis <- model_data$y_axis
+  y_unit <- model_data$y_unit
+  EF_cat <- model_data$EF_cat
+  
+  # check model significance
+  p_values <- summary(model)$coefficients[, "Pr(>|t|)"]
+ significant <- all(c(
+  if ("x" %in% names(p_values)) p_values["x"] < 0.05 else TRUE,
+  if ("log(x)" %in% names(p_values)) p_values["log(x)"] < 0.05 else TRUE,
+  if ("I(x^2)" %in% names(p_values)) p_values["I(x^2)"] < 0.05 else TRUE
+))
+  
+  #  only keep significant ones 
+  if (significant) {
+    # Calculate quantile values for x
+    x_quantiles <- quantile(x, probs = c(0.33, 0.66))
+    x_0_33 <- x_quantiles[1]
+    x_33_66 <- x_quantiles[2]
+    
+    # split the graph in 3 shades for 3 quartiles 
+    shade_data <- data.frame(
+      xmin = c(-Inf, x_0_33, x_33_66),
+      xmax = c(x_0_33, x_33_66, Inf),
+      ymin = -Inf,
+      ymax = Inf,
+      fill = factor(c("Low", "Medium", "High"))
+    )
+    
+    plot <- ggplot(dat, aes(x = x, y = y)) +
+      geom_point(size = 2, alpha = 0.5, colour = "#355C7D") +
+      stat_smooth(method = "lm", formula = model_formula, size = 1, colour = "black") +
+      geom_rect(data = shade_data, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = fill), alpha = 0.3, inherit.aes = FALSE) +
+      scale_fill_manual(values = c("Low" = "lightgoldenrod2", "Medium" = "lightblue", "High" = "lightgreen"),
+                        name = "Rewilding projects cluster based on their biodiversity gradient") +
+      geom_vline(xintercept = c(x_0_33, x_33_66), linetype = "dashed", color = "black", show.legend = FALSE) +
+      labs(x = x_axis, y = paste(ifelse(nchar(y_axis) > 20, paste0(substr(y_axis, 1, 20), "..."), y_axis), "(", y_unit, ")", sep = "")) +
+      theme_classic(base_size = 12) +
+      ggtitle(paste(EF_cat, "against", ifelse(metric == "Species_diversity_or_richness", "Species Richness", "Evenness"))) +
+      theme(legend.position = if (show_legend) "bottom" else "none")  # Set legend position based on argument
+    
+    return(plot)
+  } else {
+    return(NULL)
+  }
+}
+
+plots_evenness <- list()
+plots_richness <- list()
+
+# richness 
+for (ef in richef) {
+  model_data <- create_stat_model(filtered_richness, ef, richness_AIC, "Species_diversity_or_richness")
+  plot <- create_stat_plot(model_data, "Species_diversity_or_richness")
+  if (!is.null(plot)) {
+    plots_richness[[ef]] <- plot
+  }
+}
+
+# evenness
+for (ef in evenef) {
+  model_data <- create_stat_model(filtered_evenness, ef, evenness_AIC, "Evenness")
+  plot <- create_stat_plot(model_data, "Evenness")
+  if (!is.null(plot)) {
+    plots_evenness[[ef]] <- plot
+  }
+}
+
+# combine plots + legends all together 
+combined_plots <- c(plots_richness, plots_evenness)
+if (length(combined_plots) > 0) {
+  legend_plot <- create_stat_plot(create_stat_model(filtered_evenness, evenef[1], evenness_AIC, "Evenness"), "Evenness", show_legend = TRUE)
+  legend <- cowplot::get_legend(legend_plot)
+  plots_no_legend <- lapply(combined_plots, function(p) p + theme(legend.position = "none"))
+  
+  final_plot <- grid.arrange(
+    do.call(arrangeGrob, c(plots_no_legend, ncol = 2)),
+    legend,
+    ncol = 1, heights = c(10, 1)
+  )
+  
+  ggsave("combined_plots.png", plot = final_plot, width = 14, height = 16) # both format 
+  ggsave("combined_plots.jpeg", plot = final_plot, width = 14, height = 16)
+} else {
+  print("No significant plots to display.")
+}
+
+```
