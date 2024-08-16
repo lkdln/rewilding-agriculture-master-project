@@ -40,7 +40,7 @@ Biodiversity and Ecosystem Function: A global analysis of trends
 
 ### Packages 
 
-The following packages are used in the script and to be installed before running it: 
+The following packages are used in the script and need to be installed before running it: 
 `tidyverse`
 `readr`
 `Hmisc`
@@ -60,3 +60,11 @@ The following packages are used in the script and to be installed before running
 `webshot`
 `rnaturalearth`
 `rnaturalearthdata`
+
+
+### Section
+
+The code is divided in 3 sections:
+* 1. Rewilding Projects Gradient : Look at the rewilding projects practices, score them on a biodiversity gradients
+  2. Stastistical Analysis : Run linear model looking at the agriculture ecosystem function response to biodiversity metrics (richness and evenness)
+  3. Combination of the findings: apply the rewilding biodiversity gradient onto the statistical analysis results. 
