@@ -7,6 +7,7 @@ keywords: agriculture, rewilding, eosystem services, conservation, land manageme
 
 ## Data
 
+### Main data 
 * **Biodiversity and Ecosystem function services** -  Moffett, E.R., Gayford, J.H., Woodward, G. & Pearse, W.D. (2023)
 Biodiversity and Ecosystem Function: A global analysis of trends
 [https://www.imperial.ac.uk/media/imperial-college/research-centres-and-groups/hitachi-decarbonisation/Briefing-Note-Biodiversity-and-Ecosystem-Function.pdf](https://www.imperial.ac.uk/media/imperial-college/research-centres-and-groups/hitachi-decarbonisation/Briefing-Note-Biodiversity-and-Ecosystem-Function.pdf)
@@ -15,7 +16,7 @@ Biodiversity and Ecosystem Function: A global analysis of trends
 
 * **UK land map** - Massicotte P, South A (2024). rnaturalearth: World Map Data from Natural Earth. R package version 1.0.1.9000, [https://github.com/ropensci/rnaturalearth](https://github.com/ropensci/rnaturalearth), [https://docs.ropensci.org/rnaturalearthhires/](https://docs.ropensci.org/rnaturalearthhires/), [https://docs.ropensci.org/rnaturalearth/](https://docs.ropensci.org/rnaturalearth/). 
 
-* **References for each rewilding projects in the rw_uk_data.csv**
+### Data for each rewilding projects in the rw_uk_data.csv
 * Doddington Hall. (n.d.). *Sustainability*. Doddington Hall. [Accessed August 16, 2024], from [https://www.doddingtonhall.com/sustainability/](https://www.doddingtonhall.com/sustainability/)
 * Highlands Rewilding. (2023). Third Natural Capital Report *Building Natural Capital*. [Accessed August 16, 2024], from [https://static1.squarespace.com/static/621f9623d02fad4ef3e6b253/t/6568c20d9cfd521fe1d31ea3/1701364285366/Third+Natural+Capital+Report](https://static1.squarespace.com/static/621f9623d02fad4ef3e6b253/t/6568c20d9cfd521fe1d31ea3/1701364285366/Third+Natural+Capital+Report)
 * Knepp Estate. (n.d.). *Regenerative agriculture*. Knepp Estate. [Accessed August 16, 2024], from [https://knepp.co.uk/knepp-estate/agriculture/regenerative-agriculture/](https://knepp.co.uk/knepp-estate/agriculture/regenerative-agriculture/)
@@ -35,38 +36,27 @@ Biodiversity and Ecosystem Function: A global analysis of trends
 * Wild Ken Hill. (2020). *Thought piece: Land use model*. Wild Ken Hill. [Accessed August 16, 2024], from [https://wildkenhill.co.uk/wp-content/uploads/2021/04/Thought-Piece_-Land-Use-Model-2020.pdf](https://wildkenhill.co.uk/wp-content/uploads/2021/04/Thought-Piece_-Land-Use-Model-2020.pdf)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 ## Code 
 
 ### Packages 
+
 The following packages are used in the script and to be installed before running it: 
-tidyverse
-readr
-Hmisc
-cowplot
-gridExtra
-sf
-revgeo
-tidygeocoder
-knitr
-kableExtra
-sjPlot
-sjmisc
-sjlabelled
-htmltools 
-shiny
-gt
-webshot
-rnaturalearth
-rnaturalearthdata
+`tidyverse`
+`readr`
+`Hmisc`
+`cowplot`
+`gridExtra`
+`sf`
+`revgeo`
+`tidygeocoder`
+`knitr`
+`kableExtra`
+`sjPlot`
+`sjmisc`
+`sjlabelled`
+`htmltools`
+`shiny`
+`gt`
+`webshot`
+`rnaturalearth`
+`rnaturalearthdata`
