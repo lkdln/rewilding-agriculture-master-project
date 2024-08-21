@@ -7,10 +7,12 @@ keywords: agriculture, rewilding, eosystem services, conservation, land manageme
 
 ## Data
 
-### Main data 
+### Data used in this repository are accessible via link in the master thesis  
+
+### References 
 * **Biodiversity and Ecosystem function services** -  Moffett, E.R., Gayford, J.H., Woodward, G. & Pearse, W.D. (2023)
 Biodiversity and Ecosystem Function: A global analysis of trends
-[https://www.imperial.ac.uk/media/imperial-college/research-centres-and-groups/hitachi-decarbonisation/Briefing-Note-Biodiversity-and-Ecosystem-Function.pdf](https://www.imperial.ac.uk/media/imperial-college/research-centres-and-groups/hitachi-decarbonisation/Briefing-Note-Biodiversity-and-Ecosystem-Function.pdf)
+[https://www.imperial.ac.uk/media/imperial-college/research-centres-and-groups/hitachi-decarbonisation/Briefing-Note-Biodiversity-and-Ecosystem-Function.pdf](https://www.imperial.ac.uk/media/imperial-college/research-centres-and-groups/hitachi-decarbonisation/Briefing-Note-Biodiversity-and-Ecosystem-Function.pdf) 
 
 * **Rewilding projects in the UK** - Rewilding Britain. (2024). *Rewilding projects*. Rewilding Britain. [Accessed August 16, 2024]. [https://www.rewildingbritain.org.uk/rewilding-projects/](https://www.rewildingbritain.org.uk/rewilding-network/projects)
 
