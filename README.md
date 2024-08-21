@@ -7,7 +7,7 @@ keywords: agriculture, rewilding, eosystem services, conservation, land manageme
 
 ## Data
 
-### Data used in this repository are accessible via link in the master thesis  
+|Biodiversity and Ecosystem function dataset used in the master thesis is available upon request to will.pearse@imperial.ac.uk 
 
 ### References 
 * **Biodiversity and Ecosystem function services** -  Moffett, E.R., Gayford, J.H., Woodward, G. & Pearse, W.D. (2023)
